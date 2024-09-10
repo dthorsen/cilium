@@ -647,6 +647,14 @@ loop:
 				event.Kind = Upsert
 				event.Key = workItem.key
 				event.Object = obj
+				if strings.HasPrefix(workItem.key.Name, "k8s-proxy") && workItem.key.Namespace == "kube-system" {
+					// Any time we reconcile k8s-proxy, we must reconcile kubernetes.default because
+					// we have aliased the backends of kubernetes.default to the k8s-proxy
+					s.enqueueKey(Key{
+						Name:      "kubernetes",
+						Namespace: "default",
+					})
+				}
 			}
 		default:
 			panic(fmt.Sprintf("%T: unknown work item %T", s.r, workItem))
