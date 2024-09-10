@@ -443,6 +443,20 @@ func (s *ServiceCache) LocalServices() sets.Set[ServiceID] {
 func (s *ServiceCache) UpdateEndpoints(newEndpoints *Endpoints, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	if newEndpoints.Name == "kubernetes" && newEndpoints.Namespace == "default" {
+		proxyID := ServiceID{
+			Name:      "k8s-proxy",
+			Namespace: "kube-system",
+			Cluster:   "",
+		}
+		if ep, ok := s.endpoints[proxyID]; ok {
+			origEndpointSliceID := newEndpoints.EndpointSliceID
+			newEndpoints = ep.GetEndpoints()
+			newEndpoints.Name = "kubernetes"
+			newEndpoints.Namespace = "default"
+			newEndpoints.EndpointSliceID = origEndpointSliceID
+		}
+	}
 
 	esID := newEndpoints.EndpointSliceID
 
