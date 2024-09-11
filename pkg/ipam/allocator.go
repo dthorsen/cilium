@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 
 	"github.com/google/uuid"
@@ -28,7 +29,15 @@ var (
 
 	// ErrIPv6Disabled is returned when Ipv6 allocation is disabled
 	ErrIPv6Disabled = errors.New("IPv6 allocation disabled")
+
+	IPv6PodNetworkDisabled = false
 )
+
+func init() {
+	if ip6PodsDisabled, ok := os.LookupEnv("IPV6_POD_NETWORK_DISABLED"); ok && ip6PodsDisabled == "true" {
+		IPv6PodNetworkDisabled = true
+	}
+}
 
 func (ipam *IPAM) determineIPAMPool(owner string, family Family) (Pool, error) {
 	pool, err := ipam.metadata.GetIPPoolForPod(owner, family)
@@ -214,7 +223,7 @@ func (ipam *IPAM) AllocateNextFamilyWithoutSyncUpstream(family Family, owner str
 // allocation is limited to the specified address family. If the pool has been
 // drained of addresses, an error will be returned.
 func (ipam *IPAM) AllocateNext(family, owner string, pool Pool) (ipv4Result, ipv6Result *AllocationResult, err error) {
-	if (family == "ipv6" || family == "") && ipam.IPv6Allocator != nil {
+	if (family == "ipv6" || family == "") && ipam.IPv6Allocator != nil && !IPv6PodNetworkDisabled {
 		ipv6Result, err = ipam.AllocateNextFamily(IPv6, owner, pool)
 		if err != nil {
 			return

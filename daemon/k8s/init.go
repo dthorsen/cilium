@@ -29,7 +29,7 @@ func retrieveNodeInformation(ctx context.Context, log logrus.FieldLogger, localN
 			return fmt.Errorf("required IPv4 PodCIDR not available")
 		}
 		if option.Config.K8sRequireIPv6PodCIDR && n.IPv6AllocCIDR == nil {
-			return fmt.Errorf("required IPv6 PodCIDR not available")
+			//return fmt.Errorf("required IPv6 PodCIDR not available")
 		}
 		return nil
 	}
