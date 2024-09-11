@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"net/netip"
+	"os"
 	"slices"
 	"sync"
 
@@ -40,6 +41,16 @@ var ServiceCacheCell = cell.Module(
 	cell.Config(ServiceCacheConfig{}),
 	cell.Provide(newServiceCache),
 )
+
+var (
+	useK8sProxy bool = false
+)
+
+func init() {
+	if useK8sProxyEnv := os.Getenv("CILIUM_USE_K8S_PROXY"); useK8sProxyEnv == "true" {
+		useK8sProxy = true
+	}
+}
 
 // ServiceCacheConfig defines the configuration options for the service cache.
 type ServiceCacheConfig struct {
@@ -443,18 +454,20 @@ func (s *ServiceCache) LocalServices() sets.Set[ServiceID] {
 func (s *ServiceCache) UpdateEndpoints(newEndpoints *Endpoints, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if newEndpoints.Name == "kubernetes" && newEndpoints.Namespace == "default" {
-		proxyID := ServiceID{
-			Name:      "k8s-proxy",
-			Namespace: "kube-system",
-			Cluster:   "",
-		}
-		if ep, ok := s.endpoints[proxyID]; ok {
-			origEndpointSliceID := newEndpoints.EndpointSliceID
-			newEndpoints = ep.GetEndpoints()
-			newEndpoints.Name = "kubernetes"
-			newEndpoints.Namespace = "default"
-			newEndpoints.EndpointSliceID = origEndpointSliceID
+	if useK8sProxy {
+		if newEndpoints.Name == "kubernetes" && newEndpoints.Namespace == "default" {
+			proxyID := ServiceID{
+				Name:      "k8s-proxy",
+				Namespace: "kube-system",
+				Cluster:   "",
+			}
+			if ep, ok := s.endpoints[proxyID]; ok {
+				origEndpointSliceID := newEndpoints.EndpointSliceID
+				newEndpoints = ep.GetEndpoints()
+				newEndpoints.Name = "kubernetes"
+				newEndpoints.Namespace = "default"
+				newEndpoints.EndpointSliceID = origEndpointSliceID
+			}
 		}
 	}
 

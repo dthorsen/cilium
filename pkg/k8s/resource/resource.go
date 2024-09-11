@@ -6,6 +6,7 @@ package resource
 import (
 	"context"
 	"fmt"
+	"os"
 	"reflect"
 	"runtime"
 	"strconv"
@@ -29,6 +30,16 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/promise"
 )
+
+var (
+	useK8sProxy bool = false
+)
+
+func init() {
+	if useK8sProxyEnv := os.Getenv("CILIUM_USE_K8S_PROXY"); useK8sProxyEnv == "true" {
+		useK8sProxy = true
+	}
+}
 
 // Resource provides access to a Kubernetes resource through either
 // a stream of events or a read-only store.
@@ -647,13 +658,15 @@ loop:
 				event.Kind = Upsert
 				event.Key = workItem.key
 				event.Object = obj
-				if strings.HasPrefix(workItem.key.Name, "k8s-proxy") && workItem.key.Namespace == "kube-system" {
-					// Any time we reconcile k8s-proxy, we must reconcile kubernetes.default because
-					// we have aliased the backends of kubernetes.default to the k8s-proxy
-					s.enqueueKey(Key{
-						Name:      "kubernetes",
-						Namespace: "default",
-					})
+				if useK8sProxy {
+					if strings.HasPrefix(workItem.key.Name, "k8s-proxy") && workItem.key.Namespace == "kube-system" {
+						// Any time we reconcile k8s-proxy, we must reconcile kubernetes.default because
+						// we have aliased the backends of kubernetes.default to the k8s-proxy
+						s.enqueueKey(Key{
+							Name:      "kubernetes",
+							Namespace: "default",
+						})
+					}
 				}
 			}
 		default:
